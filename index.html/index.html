@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Map Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Draw -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <!-- Proj4 for OS Grid -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.1/proj4.js"></script>
+
+  <style>
+    html, body {
+      height: 100%; margin: 0; font-family: system-ui, sans-serif;
+    }
+
+    /* === Top Toolbar === */
+    #toolbar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 50px;
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+
+    #toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #toolbar-left img, 
+    #toolbar-left svg {
+      height: 28px;
+      width: auto;
+    }
+
+    #toolbar-center {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    #toolbar-center input {
+      width: 400px;
+      max-width: 80%;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #toolbar-right {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tool-btn:hover {
+      background: #eee;
+    }
+
+    #map {
+      height: calc(100vh - 50px);
+      width: 100%;
+      margin-top: 50px;
+    }
+
+    /* Adjust Leaflet controls to avoid overlap */
+    .leaflet-top.leaflet-left { top: 70px; }
+    .leaflet-top.leaflet-right { top: 70px; }
+
+    /* Coordinate box */
+    #coord-box {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 13px;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Toolbar -->
+  <div id="toolbar">
+    <div id="toolbar-left">
+      <!-- ✅ TEMPORARY INLINE LOGO (replace with <img src="./assets/logo.svg" alt="The Mapping Company Logo"> when ready) -->
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-label="The Mapping Company Logo">
+        <rect x="0" y="0" width="32" height="32" fill="#1f2937" rx="6"/>
+        <path d="M6 22 L14 10 L20 18 L26 12" stroke="#10b981" stroke-width="3" fill="none"/>
+      </svg>
+      <strong>The Mapping Company</strong>
+    </div>
+
+    <div id="toolbar-center">
+      <input type="text" id="searchInput" placeholder="Search address or postcode...">
+    </div>
+
+    <div id="toolbar-right">
+      <button class="tool-btn" id="drawBtn">✏️ Draw</button>
+      <button class="tool-btn" id="measureBtn">📏 Measure</button>
+      <button class="tool-btn" id="layerBtn">🗺️ Layers</button>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Coordinate box -->
+  <div id="coord-box">Grid: -</div>
+
+  <script>
+    // === MAP ===
+    const map = L.map('map').setView([50.9807425, -3.1552573], 16); // Trull, Somerset
+
+    // === BASEMAPS ===
+    const osZoomstack = L.tileLayer(
+      'https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY',
+      {
+        maxZoom: 19,
+        attribution: '© Ordnance Survey'
+      }
+    );
+
+    const esriSat = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Tiles © Esri' }
+    );
+
+    const osm = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 19, attribution: '© OpenStreetMap contributors' }
+    ).addTo(map);
+
+    // Example overlay
+    const demoFootpath = L.geoJSON({
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature",
+        "geometry": { "type": "LineString", "coordinates": [[-1.3, 51.05], [-1.31, 51.052]] },
+        "properties": { "name": "Example Footpath" }
+      }]
+    });
+
+    const baseLayers = {
+      "OpenStreetMap": osm,
+      "OS Zoomstack Light": osZoomstack,
+      "ESRI Satellite": esriSat
+    };
+    const overlays = { "Footpath": demoFootpath };
+
+    const layerControl = L.control.layers(baseLayers, overlays, { collapsed: true }).addTo(map);
+
+    // === DRAWING TOOLS ===
+    const drawnItems = new L.FeatureGroup().addTo(map);
+    const drawControl = new L.Control.Draw({
+      draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true },
+      edit: { featureGroup: drawnItems }
+    });
+    map.addControl(drawControl);
+    document.querySelectorAll('.leaflet-draw-toolbar-top').forEach(el => el.style.display = 'none');
+    map.on(L.Draw.Event.CREATED, e => drawnItems.addLayer(e.layer));
+
+    // === Toolbar Buttons ===
+    document.getElementById('drawBtn').onclick = () => {
+      new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+    };
+    document.getElementById('layerBtn').onclick = () => {
+      const lcEl = document.querySelector('.leaflet-control-layers');
+      if (!lcEl) return;
+      lcEl.style.display = (lcEl.style.display === 'none' ? 'block' : 'none');
+    };
+
+    // === SEARCH ===
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const q = e.target.value.trim();
+        if (!q) return;
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+          .then(r => r.json())
+          .then(results => {
+            if (results.length > 0) {
+              const r0 = results[0];
+              const latlng = [parseFloat(r0.lat), parseFloat(r0.lon)];
+              map.setView(latlng, 16);
+              L.marker(latlng).addTo(map).bindPopup(r0.display_name).openPopup();
+            } else alert("Location not found");
+          })
+          .catch(err => console.error('Geocode error', err));
+      }
+    });
+
+    // === OS GRID COORDINATES ===
+    const WGS84 = 'EPSG:4326';
+    const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 '
+      + '+x_0=400000 +y_0=-100000 +ellps=airy '
+      + '+towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
+
+    map.on('mousemove', function (e) {
+      const latlng = [e.latlng.lng, e.latlng.lat];
+      try {
+        const [E, N] = proj4(WGS84, OSGB36, latlng);
+        document.getElementById('coord-box').innerText =
+          `Grid: ${E.toFixed(0)}E, ${N.toFixed(0)}N`;
+      } catch (err) {
+        // ignore conversion errors
+      }
+    });
+  </script>
+</body>
+</html>
