@@ -103,6 +103,60 @@
       font-size: 13px;
       z-index: 999;
     }
+
+    /* Style for area labels */
+    .area-label {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px;
+      font-size: 12px;
+      color: #333;
+    }
+
+    /* Style for grouped layer control */
+    .leaflet-control-layers-group-title {
+      font-weight: bold;
+      margin: 5px 0;
+    }
+
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      z-index: 1000;
+      min-width: 150px;
+    }
+
+    .dropdown-content .dropdown-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      text-align: left;
+      border: none;
+      background: none;
+      width: 100%;
+    }
+
+    .dropdown-content .dropdown-item:hover {
+      background-color: #f1f1f1;
+    }
+
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+
+    .dropdown-content .dropdown-item.selected {
+      background-color: #e0e0e0;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -125,7 +179,22 @@
     <div id="toolbar-right">
       <button class="tool-btn" id="drawBtn">✏️ Draw</button>
       <button class="tool-btn" id="measureBtn">📏 Measure</button>
-      <button class="tool-btn" id="layerBtn">🗺️ Layers</button>
+      <div class="dropdown">
+        <button class="tool-btn dropdown-btn" id="baseMapsDropdownBtn">🗺️ Base Maps</button>
+        <div class="dropdown-content" id="baseMapsDropdown">
+          <button class="dropdown-item" data-layer="OpenStreetMap">OpenStreetMap</button>
+          <button class="dropdown-item" data-layer="OS Zoomstack Light">OS Zoomstack Light</button>
+          <button class="dropdown-item" data-layer="ESRI Satellite">ESRI Satellite</button>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="tool-btn dropdown-btn" id="mapLayersDropdownBtn">📚 Map Layers</button>
+        <div class="dropdown-content" id="mapLayersDropdown">
+          <button class="dropdown-item" data-layer="Footpaths">Footpaths</button>
+          <button class="dropdown-item" data-layer="Water">Water</button>
+          <button class="dropdown-item" data-layer="Utilities">Utilities</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -158,7 +227,7 @@
       { maxZoom: 19, attribution: '© OpenStreetMap contributors' }
     ).addTo(map);
 
-    // Example overlay
+    // === OVERLAYS ===
     const demoFootpath = L.geoJSON({
       "type": "FeatureCollection",
       "features": [{
@@ -168,14 +237,62 @@
       }]
     });
 
-    const baseLayers = {
+    const waterLayer = L.geoJSON({
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature",
+        "geometry": { "type": "Polygon", "coordinates": [[[-1.3, 51.05], [-1.31, 51.05], [-1.31, 51.052], [-1.3, 51.052], [-1.3, 51.05]]] },
+        "properties": { "name": "Example Water" }
+      }]
+    });
+
+    const utilitiesLayer = L.geoJSON({
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature",
+        "geometry": { "type": "Point", "coordinates": [-1.305, 51.051] },
+        "properties": { "name": "Example Utility" }
+      }]
+    });
+
+    // Group layers into categories
+    const baseMaps = {
       "OpenStreetMap": osm,
       "OS Zoomstack Light": osZoomstack,
       "ESRI Satellite": esriSat
     };
-    const overlays = { "Footpath": demoFootpath };
 
-    const layerControl = L.control.layers(baseLayers, overlays, { collapsed: true }).addTo(map);
+    const mapLayers = {
+      "Footpaths": demoFootpath,
+      "Water": waterLayer,
+      "Utilities": utilitiesLayer
+    };
+
+    // Custom grouped layer control
+    const groupedLayerControl = L.control.layers(null, null, { collapsed: true }).addTo(map);
+
+    // Add "Base Maps" group
+    const baseMapsContainer = L.DomUtil.create('div', 'leaflet-control-layers-group');
+    const baseMapsTitle = L.DomUtil.create('div', 'leaflet-control-layers-group-title', baseMapsContainer);
+    baseMapsTitle.innerText = 'Base Maps';
+    Object.entries(baseMaps).forEach(([name, layer]) => {
+      groupedLayerControl.addBaseLayer(layer, name);
+    });
+    groupedLayerControl._baseLayersList.appendChild(baseMapsContainer);
+
+    // Add "Map Layers" group
+    const mapLayersContainer = L.DomUtil.create('div', 'leaflet-control-layers-group');
+    const mapLayersTitle = L.DomUtil.create('div', 'leaflet-control-layers-group-title', mapLayersContainer);
+    mapLayersTitle.innerText = 'Map Layers';
+    Object.entries(mapLayers).forEach(([name, layer]) => {
+      groupedLayerControl.addOverlay(layer, name);
+    });
+    groupedLayerControl._overlaysList.appendChild(mapLayersContainer);
+
+    // Add overlays to the map
+    demoFootpath.addTo(map);
+    waterLayer.addTo(map);
+    utilitiesLayer.addTo(map);
 
     // === DRAWING TOOLS ===
     const drawnItems = new L.FeatureGroup().addTo(map);
@@ -185,17 +302,84 @@
     });
     map.addControl(drawControl);
     document.querySelectorAll('.leaflet-draw-toolbar-top').forEach(el => el.style.display = 'none');
-    map.on(L.Draw.Event.CREATED, e => drawnItems.addLayer(e.layer));
+    
+    map.on(L.Draw.Event.CREATED, e => {
+      const layer = e.layer;
+
+      // Calculate area for polygons and rectangles
+      if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
+        const areaSqMeters = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+        const areaHectares = areaSqMeters / 10000;
+        const areaAcres = areaSqMeters / 4046.8564224;
+
+        // Create a label in the center of the shape
+        const center = layer.getBounds().getCenter();
+        const label = L.marker(center, {
+          icon: L.divIcon({
+            className: 'area-label',
+            html: `<div style="text-align: center;">
+                     <strong>${areaHectares.toFixed(2)} ha</strong><br>
+                     ${areaAcres.toFixed(2)} acres
+                   </div>`,
+            iconSize: [100, 40]
+          }),
+          interactive: false
+        }).addTo(map);
+
+        // Remove the label when the shape is removed
+        layer.on('remove', () => map.removeLayer(label));
+      }
+
+      drawnItems.addLayer(layer);
+    });
+
+    // Add a scalebar to the map
+    L.control.scale({
+      position: 'bottomleft', // Position the scalebar in the bottom left corner
+      metric: true,          // Display metric units
+      imperial: true         // Display imperial units
+    }).addTo(map);
 
     // === Toolbar Buttons ===
     document.getElementById('drawBtn').onclick = () => {
       new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
     };
-    document.getElementById('layerBtn').onclick = () => {
-      const lcEl = document.querySelector('.leaflet-control-layers');
-      if (!lcEl) return;
-      lcEl.style.display = (lcEl.style.display === 'none' ? 'block' : 'none');
-    };
+
+    // Handle Base Maps dropdown with selection highlighting
+    document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(item => {
+      item.onclick = () => {
+        const layerName = item.getAttribute('data-layer');
+        Object.entries(baseMaps).forEach(([name, layer]) => {
+          if (name === layerName) {
+            layer.addTo(map);
+          } else {
+            map.removeLayer(layer);
+          }
+        });
+
+        // Highlight the selected item
+        document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+      };
+    });
+
+    // Handle Map Layers dropdown with selection highlighting
+    document.querySelectorAll('#mapLayersDropdown .dropdown-item').forEach(item => {
+      item.onclick = () => {
+        const layerName = item.getAttribute('data-layer');
+        Object.entries(mapLayers).forEach(([name, layer]) => {
+          if (name === layerName) {
+            if (map.hasLayer(layer)) {
+              map.removeLayer(layer);
+              item.classList.remove('selected'); // Unselect if removed
+            } else {
+              layer.addTo(map);
+              item.classList.add('selected'); // Highlight if added
+            }
+          }
+        });
+      };
+    });
 
     // === SEARCH ===
     document.getElementById('searchInput').addEventListener('keydown', e => {
