@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Map Viewer</title>
+  <title>The Mapping Company – Map Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Leaflet -->
+  <!-- Leaflet core -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -13,12 +13,17 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- Proj4 for OS Grid -->
+  <!-- GeometryUtil for measuring polygon areas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.geometryutil/0.10.0/leaflet.geometryutil.min.js"></script>
+
+  <!-- Proj4 for OS Grid conversions -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.1/proj4.js"></script>
 
   <style>
     html, body {
-      height: 100%; margin: 0; font-family: system-ui, sans-serif;
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, sans-serif;
     }
 
     /* === Top Toolbar === */
@@ -87,7 +92,7 @@
       margin-top: 50px;
     }
 
-    /* Adjust Leaflet controls to avoid overlap */
+    /* Adjust Leaflet controls */
     .leaflet-top.leaflet-left { top: 70px; }
     .leaflet-top.leaflet-right { top: 70px; }
 
@@ -104,7 +109,7 @@
       z-index: 999;
     }
 
-    /* Style for area labels */
+    /* Area labels */
     .area-label {
       background: rgba(255, 255, 255, 0.8);
       border: 1px solid #ccc;
@@ -114,28 +119,18 @@
       color: #333;
     }
 
-    /* Style for grouped layer control */
-    .leaflet-control-layers-group-title {
-      font-weight: bold;
-      margin: 5px 0;
-    }
-
-    .dropdown {
-      position: relative;
-      display: inline-block;
-    }
-
+    /* Dropdown menus */
+    .dropdown { position: relative; display: inline-block; }
     .dropdown-content {
       display: none;
       position: absolute;
-      background-color: #fff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       border: 1px solid #ccc;
       border-radius: 6px;
       z-index: 1000;
       min-width: 150px;
     }
-
     .dropdown-content .dropdown-item {
       padding: 8px 12px;
       cursor: pointer;
@@ -144,28 +139,17 @@
       background: none;
       width: 100%;
     }
-
-    .dropdown-content .dropdown-item:hover {
-      background-color: #f1f1f1;
-    }
-
-    .dropdown:hover .dropdown-content {
-      display: block;
-    }
-
-    .dropdown-content .dropdown-item.selected {
-      background-color: #e0e0e0;
-      font-weight: bold;
-    }
+    .dropdown-content .dropdown-item:hover { background-color: #f1f1f1; }
+    .dropdown-content .dropdown-item.selected { background-color: #e0e0e0; font-weight: bold; }
+    .dropdown:hover .dropdown-content, .dropdown-content:hover { display: block; }
   </style>
 </head>
 <body>
 
-  <!-- Top Toolbar -->
+  <!-- === Toolbar === -->
   <div id="toolbar">
     <div id="toolbar-left">
-      <!-- ✅ TEMPORARY INLINE LOGO (replace with <img src="./assets/logo.svg" alt="The Mapping Company Logo"> when ready) -->
-      <svg width="32" height="32" viewBox="0 0 32 32" aria-label="The Mapping Company Logo">
+      <svg width="32" height="32" viewBox="0 0 32 32">
         <rect x="0" y="0" width="32" height="32" fill="#1f2937" rx="6"/>
         <path d="M6 22 L14 10 L20 18 L26 12" stroke="#10b981" stroke-width="3" fill="none"/>
       </svg>
@@ -173,14 +157,13 @@
     </div>
 
     <div id="toolbar-center">
-      <input type="text" id="searchInput" placeholder="Search address or postcode...">
+      <input type="text" id="searchInput" placeholder="Search address or postcode..." />
     </div>
 
     <div id="toolbar-right">
       <button class="tool-btn" id="drawBtn">✏️ Draw</button>
-      <button class="tool-btn" id="measureBtn">📏 Measure</button>
       <div class="dropdown">
-        <button class="tool-btn dropdown-btn" id="baseMapsDropdownBtn">🗺️ Base Maps</button>
+        <button class="tool-btn">🗺️ Base Maps</button>
         <div class="dropdown-content" id="baseMapsDropdown">
           <button class="dropdown-item" data-layer="OpenStreetMap">OpenStreetMap</button>
           <button class="dropdown-item" data-layer="OS Zoomstack Light">OS Zoomstack Light</button>
@@ -188,7 +171,7 @@
         </div>
       </div>
       <div class="dropdown">
-        <button class="tool-btn dropdown-btn" id="mapLayersDropdownBtn">📚 Map Layers</button>
+        <button class="tool-btn">📚 Map Layers</button>
         <div class="dropdown-content" id="mapLayersDropdown">
           <button class="dropdown-item" data-layer="Footpaths">Footpaths</button>
           <button class="dropdown-item" data-layer="Water">Water</button>
@@ -200,307 +183,126 @@
     </div>
   </div>
 
-  <!-- Map -->
   <div id="map"></div>
-
-  <!-- Coordinate box -->
   <div id="coord-box">Grid: -</div>
-  <!-- Data load status -->
-  <div id="data-status" style="position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,0.9); border: 1px solid #ccc; border-radius:6px; padding:6px 10px; font-size:13px; z-index:999;">Counties: not loaded</div>
+  <div id="data-status" style="position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,0.95);border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:13px;z-index:999;">
+    <span id="data-status-text">Counties: loading...</span>
+  </div>
 
   <script>
-    // === MAP ===
-    const map = L.map('map').setView([50.9807425, -3.1552573], 16); // Trull, Somerset
+    // === MAP INITIALISATION ===
+    const map = L.map('map').setView([50.9807, -3.1552], 13);
 
     // === BASEMAPS ===
-    const osZoomstack = L.tileLayer(
-      'https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY',
-      {
-        maxZoom: 19,
-        attribution: '© Ordnance Survey'
-      }
-    );
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-    const esriSat = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { attribution: 'Tiles © Esri' }
-    );
+    const osZoomstack = L.tileLayer('https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY', {
+      maxZoom: 19,
+      attribution: '© Ordnance Survey'
+    });
 
-    const osm = L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { maxZoom: 19, attribution: '© OpenStreetMap contributors' }
-    ).addTo(map);
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
 
-    // === OVERLAYS ===
+    const baseMaps = { "OpenStreetMap": osm, "OS Zoomstack Light": osZoomstack, "ESRI Satellite": esriSat };
+
+    // === SIMPLE OVERLAYS ===
     const demoFootpath = L.geoJSON({
-      "type": "FeatureCollection",
-      "features": [{
-        "type": "Feature",
-        "geometry": { "type": "LineString", "coordinates": [[-1.3, 51.05], [-1.31, 51.052]] },
-        "properties": { "name": "Example Footpath" }
-      }]
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[-3.16, 50.98], [-3.15, 50.982]] }, properties: { name: "Example Footpath" } }]
     });
 
     const waterLayer = L.geoJSON({
-      "type": "FeatureCollection",
-      "features": [{
-        "type": "Feature",
-        "geometry": { "type": "Polygon", "coordinates": [[[-1.3, 51.05], [-1.31, 51.05], [-1.31, 51.052], [-1.3, 51.052], [-1.3, 51.05]]] },
-        "properties": { "name": "Example Water" }
-      }]
-    });
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[-3.16, 50.979], [-3.158, 50.979], [-3.158, 50.982], [-3.16, 50.982], [-3.16, 50.979]]] }, properties: { name: "Example Water" } }]
+    }, { style: { color: '#00bfff', weight: 2, fillOpacity: 0.3 } });
 
     const utilitiesLayer = L.geoJSON({
-      "type": "FeatureCollection",
-      "features": [{
-        "type": "Feature",
-        "geometry": { "type": "Point", "coordinates": [-1.305, 51.051] },
-        "properties": { "name": "Example Utility" }
-      }]
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-3.157, 50.981] }, properties: { name: "Example Utility" } }]
     });
 
-      // === TEST: Local Authority Boundaries (sample GeoJSON) ===
-      // This is a small sample polygon near the map center used for testing.
-      const localAuthorityLayer = L.geoJSON({
-        "type": "FeatureCollection",
-        "features": [{
-          "type": "Feature",
-          "properties": { "name": "Test Local Authority" },
-          "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-              [-3.162, 50.983],
-              [-3.148, 50.983],
-              [-3.148, 50.977],
-              [-3.162, 50.977],
-              [-3.162, 50.983]
-            ]]
-          }
-        }]
-      }, {
-        style: {
-          color: '#7b3294',
-          weight: 2,
-          dashArray: '4 3',
-          fillColor: '#b2a5d9',
-          fillOpacity: 0.35
-        },
-        onEachFeature: function (feature, layer) {
-          if (feature.properties && feature.properties.name) {
-            layer.bindPopup(`<strong>${feature.properties.name}</strong>`);
-          }
-        }
-      });
+    const localAuthorityLayer = L.geoJSON({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: { name: "Test Local Authority" },
+        geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }]
+    }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
 
-      // === County Boundaries (load from local file ./data/counties.geojson) ===
-      // Placeholder empty layer so it can be toggled before the fetch completes
-      const countiesLayer = L.geoJSON(null, {
-        style: {
-          color: '#1f78b4',
-          weight: 2,
-          fillColor: '#a6cee3',
-          fillOpacity: 0.25
-        },
-        onEachFeature: function (feature, layer) {
-          const name = feature.properties && (feature.properties.name || feature.properties.NAME || feature.properties.county || feature.properties.County) || 'County';
-          layer.bindPopup(`<strong>${name}</strong>`);
-        }
-      });
+    const countiesLayer = L.geoJSON(null, { style: { color: '#1f78b4', weight: 2, fillOpacity: 0.25 } });
 
-      // Group layers into categories
-    const baseMaps = {
-      "OpenStreetMap": osm,
-      "OS Zoomstack Light": osZoomstack,
-      "ESRI Satellite": esriSat
-    };
+    const mapLayers = { "Footpaths": demoFootpath, "Water": waterLayer, "Utilities": utilitiesLayer, "Local Authority Boundaries": localAuthorityLayer, "County Boundaries": countiesLayer };
 
-    const mapLayers = {
-      "Footpaths": demoFootpath,
-      "Water": waterLayer,
-      "Utilities": utilitiesLayer,
-      "Local Authority Boundaries": localAuthorityLayer
-      ,"County Boundaries": countiesLayer
-    };
+    // === LOAD COUNTIES GEOJSON ===
+    const countiesUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/county_region_68e7e.json'; // ✅ change if needed
+    const dataStatusText = document.getElementById('data-status-text');
 
-    // Custom grouped layer control
-    const groupedLayerControl = L.control.layers(null, null, { collapsed: true }).addTo(map);
-
-    // Add "Base Maps" group
-    const baseMapsContainer = L.DomUtil.create('div', 'leaflet-control-layers-group');
-    const baseMapsTitle = L.DomUtil.create('div', 'leaflet-control-layers-group-title', baseMapsContainer);
-    baseMapsTitle.innerText = 'Base Maps';
-    Object.entries(baseMaps).forEach(([name, layer]) => {
-      groupedLayerControl.addBaseLayer(layer, name);
-    });
-    groupedLayerControl._baseLayersList.appendChild(baseMapsContainer);
-
-    // Add "Map Layers" group
-    const mapLayersContainer = L.DomUtil.create('div', 'leaflet-control-layers-group');
-    const mapLayersTitle = L.DomUtil.create('div', 'leaflet-control-layers-group-title', mapLayersContainer);
-    mapLayersTitle.innerText = 'Map Layers';
-    Object.entries(mapLayers).forEach(([name, layer]) => {
-      groupedLayerControl.addOverlay(layer, name);
-    });
-    groupedLayerControl._overlaysList.appendChild(mapLayersContainer);
-
-    // Add overlays to the map
-    demoFootpath.addTo(map);
-    waterLayer.addTo(map);
-    utilitiesLayer.addTo(map);
-  // Show Local Authority Boundaries by default as a test
-  localAuthorityLayer.addTo(map);
-
-    // Load counties GeoJSON from the GitHub raw URL provided by the user
-    // Raw URL derived from: https://github.com/wdfrazer-star/map-viewer/blob/main/data/counties.geojson/county_region_68e7e.json
-    // update the visible status element so the user can see progress without DevTools
-    const dataStatusEl = document.getElementById('data-status');
-    if (dataStatusEl) dataStatusEl.innerText = 'Counties: loading...';
-
-    fetch('https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/county_region_68e7e.json')
-      .then(r => {
+    async function loadCounties() {
+      try {
+        const r = await fetch(countiesUrl);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(data => {
-        countiesLayer.addData(data);
-        // Add the counties layer to the map so it is visible by default
-        countiesLayer.addTo(map);
-        if (dataStatusEl) {
-          const count = data && data.features ? data.features.length : 'unknown';
-          dataStatusEl.innerText = `Counties: loaded (${count} features)`;
-        }
-        // Ensure the counties layer appears in the Leaflet grouped control
-        try {
-          if (typeof groupedLayerControl !== 'undefined' && groupedLayerControl.addOverlay) {
-            groupedLayerControl.addOverlay(countiesLayer, 'County Boundaries');
-          }
-        } catch (e) {
-          console.warn('Could not add counties layer to grouped control', e);
-        }
-
-        // Ensure there's a toolbar dropdown item for County Boundaries; create if missing
-        let countyBtn = document.querySelector('#mapLayersDropdown .dropdown-item[data-layer="County Boundaries"]');
-        if (!countyBtn) {
-          const container = document.getElementById('mapLayersDropdown');
-          countyBtn = document.createElement('button');
-          countyBtn.className = 'dropdown-item';
-          countyBtn.setAttribute('data-layer', 'County Boundaries');
-          countyBtn.textContent = 'County Boundaries';
-          container.appendChild(countyBtn);
-          // Re-bind click handler for this new item
-          countyBtn.onclick = () => {
-            if (map.hasLayer(countiesLayer)) {
-              map.removeLayer(countiesLayer);
-              countyBtn.classList.remove('selected');
-            } else {
-              countiesLayer.addTo(map);
-              countyBtn.classList.add('selected');
-            }
-          };
-        }
-
-        // Mark the County Boundaries dropdown item as selected
-        if (countyBtn) countyBtn.classList.add('selected');
-      })
-      .catch(err => {
-        console.error('Failed to load counties GeoJSON:', err);
-        if (dataStatusEl) dataStatusEl.innerText = `Counties: failed to load (${err.message})`;
-        const cb = document.getElementById('coord-box');
-        if (cb) cb.innerText = 'Grid: - (counties failed to load)';
-      });
+        const data = await r.json();
+        countiesLayer.clearLayers();
+        countiesLayer.addData(data).addTo(map);
+        dataStatusText.textContent = `Counties: loaded ${data.features.length} features`;
+      } catch (e) {
+        console.error('Failed to load counties:', e);
+        dataStatusText.textContent = `Counties: failed to load (${e.message})`;
+      }
+    }
+    loadCounties();
 
     // === DRAWING TOOLS ===
     const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({
-      draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true },
-      edit: { featureGroup: drawnItems }
-    });
+    const drawControl = new L.Control.Draw({ draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }, edit: { featureGroup: drawnItems } });
     map.addControl(drawControl);
-    document.querySelectorAll('.leaflet-draw-toolbar-top').forEach(el => el.style.display = 'none');
-    
+
     map.on(L.Draw.Event.CREATED, e => {
       const layer = e.layer;
-
-      // Calculate area for polygons and rectangles
       if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
-        const areaSqMeters = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
-        const areaHectares = areaSqMeters / 10000;
-        const areaAcres = areaSqMeters / 4046.8564224;
-
-        // Create a label in the center of the shape
+        const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+        const ha = area / 10000;
+        const acres = area / 4046.8564224;
         const center = layer.getBounds().getCenter();
-        const label = L.marker(center, {
+        L.marker(center, {
           icon: L.divIcon({
             className: 'area-label',
-            html: `<div style="text-align: center;">
-                     <strong>${areaHectares.toFixed(2)} ha</strong><br>
-                     ${areaAcres.toFixed(2)} acres
-                   </div>`,
+            html: `<strong>${ha.toFixed(2)} ha</strong><br>${acres.toFixed(2)} acres`,
             iconSize: [100, 40]
-          }),
-          interactive: false
+          }), interactive: false
         }).addTo(map);
-
-        // Remove the label when the shape is removed
-        layer.on('remove', () => map.removeLayer(label));
       }
-
       drawnItems.addLayer(layer);
     });
 
-    // Add a scalebar to the map
-    L.control.scale({
-      position: 'bottomleft', // Position the scalebar in the bottom left corner
-      metric: true,          // Display metric units
-      imperial: true         // Display imperial units
-    }).addTo(map);
+    // === SCALEBAR ===
+    L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
 
-    // === Toolbar Buttons ===
-    document.getElementById('drawBtn').onclick = () => {
-      new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
-    };
-
-    // Handle Base Maps dropdown with selection highlighting
+    // === BASEMAP DROPDOWN ===
     document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(item => {
       item.onclick = () => {
-        const layerName = item.getAttribute('data-layer');
-        Object.entries(baseMaps).forEach(([name, layer]) => {
-          if (name === layerName) {
-            layer.addTo(map);
-          } else {
-            map.removeLayer(layer);
-          }
-        });
-
-        // Highlight the selected item
+        const name = item.getAttribute('data-layer');
+        Object.entries(baseMaps).forEach(([n, l]) => (n === name ? l.addTo(map) : map.removeLayer(l)));
         document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(i => i.classList.remove('selected'));
         item.classList.add('selected');
       };
     });
 
-    // Handle Map Layers dropdown with selection highlighting
+    // === MAP LAYER DROPDOWN ===
     document.querySelectorAll('#mapLayersDropdown .dropdown-item').forEach(item => {
       item.onclick = () => {
-        const layerName = item.getAttribute('data-layer');
-        Object.entries(mapLayers).forEach(([name, layer]) => {
-          if (name === layerName) {
-            if (map.hasLayer(layer)) {
-              map.removeLayer(layer);
-              item.classList.remove('selected'); // Unselect if removed
-            } else {
-              layer.addTo(map);
-              item.classList.add('selected'); // Highlight if added
-            }
-          }
-        });
+        const name = item.getAttribute('data-layer');
+        const layer = mapLayers[name];
+        if (!layer) return;
+        if (map.hasLayer(layer)) { map.removeLayer(layer); item.classList.remove('selected'); }
+        else { layer.addTo(map); item.classList.add('selected'); }
       };
     });
 
-    // Pre-select the Local Authority Boundaries dropdown item since it's on by default
-    const preselect = document.querySelector('#mapLayersDropdown .dropdown-item[data-layer="Local Authority Boundaries"]');
-    if (preselect) preselect.classList.add('selected');
-
-    // === SEARCH ===
+    // === SEARCH BOX ===
     document.getElementById('searchInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         const q = e.target.value.trim();
@@ -508,32 +310,23 @@
         fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
           .then(r => r.json())
           .then(results => {
-            if (results.length > 0) {
-              const r0 = results[0];
-              const latlng = [parseFloat(r0.lat), parseFloat(r0.lon)];
+            if (results.length) {
+              const c = results[0];
+              const latlng = [parseFloat(c.lat), parseFloat(c.lon)];
               map.setView(latlng, 16);
-              L.marker(latlng).addTo(map).bindPopup(r0.display_name).openPopup();
+              L.marker(latlng).addTo(map).bindPopup(c.display_name).openPopup();
             } else alert("Location not found");
           })
-          .catch(err => console.error('Geocode error', err));
+          .catch(err => console.error('Search error:', err));
       }
     });
 
     // === OS GRID COORDINATES ===
     const WGS84 = 'EPSG:4326';
-    const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 '
-      + '+x_0=400000 +y_0=-100000 +ellps=airy '
-      + '+towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
-
-    map.on('mousemove', function (e) {
-      const latlng = [e.latlng.lng, e.latlng.lat];
-      try {
-        const [E, N] = proj4(WGS84, OSGB36, latlng);
-        document.getElementById('coord-box').innerText =
-          `Grid: ${E.toFixed(0)}E, ${N.toFixed(0)}N`;
-      } catch (err) {
-        // ignore conversion errors
-      }
+    const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
+    map.on('mousemove', e => {
+      const [E, N] = proj4(WGS84, OSGB36, [e.latlng.lng, e.latlng.lat]);
+      document.getElementById('coord-box').innerText = `Grid: ${E.toFixed(0)}E, ${N.toFixed(0)}N`;
     });
   </script>
 </body>
