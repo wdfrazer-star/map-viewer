@@ -193,6 +193,8 @@
           <button class="dropdown-item" data-layer="Footpaths">Footpaths</button>
           <button class="dropdown-item" data-layer="Water">Water</button>
           <button class="dropdown-item" data-layer="Utilities">Utilities</button>
+          <button class="dropdown-item" data-layer="Local Authority Boundaries">Local Authority Boundaries</button>
+          <button class="dropdown-item" data-layer="County Boundaries">County Boundaries</button>
         </div>
       </div>
     </div>
@@ -203,6 +205,8 @@
 
   <!-- Coordinate box -->
   <div id="coord-box">Grid: -</div>
+  <!-- Data load status -->
+  <div id="data-status" style="position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,0.9); border: 1px solid #ccc; border-radius:6px; padding:6px 10px; font-size:13px; z-index:999;">Counties: not loaded</div>
 
   <script>
     // === MAP ===
@@ -255,7 +259,55 @@
       }]
     });
 
-    // Group layers into categories
+      // === TEST: Local Authority Boundaries (sample GeoJSON) ===
+      // This is a small sample polygon near the map center used for testing.
+      const localAuthorityLayer = L.geoJSON({
+        "type": "FeatureCollection",
+        "features": [{
+          "type": "Feature",
+          "properties": { "name": "Test Local Authority" },
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+              [-3.162, 50.983],
+              [-3.148, 50.983],
+              [-3.148, 50.977],
+              [-3.162, 50.977],
+              [-3.162, 50.983]
+            ]]
+          }
+        }]
+      }, {
+        style: {
+          color: '#7b3294',
+          weight: 2,
+          dashArray: '4 3',
+          fillColor: '#b2a5d9',
+          fillOpacity: 0.35
+        },
+        onEachFeature: function (feature, layer) {
+          if (feature.properties && feature.properties.name) {
+            layer.bindPopup(`<strong>${feature.properties.name}</strong>`);
+          }
+        }
+      });
+
+      // === County Boundaries (load from local file ./data/counties.geojson) ===
+      // Placeholder empty layer so it can be toggled before the fetch completes
+      const countiesLayer = L.geoJSON(null, {
+        style: {
+          color: '#1f78b4',
+          weight: 2,
+          fillColor: '#a6cee3',
+          fillOpacity: 0.25
+        },
+        onEachFeature: function (feature, layer) {
+          const name = feature.properties && (feature.properties.name || feature.properties.NAME || feature.properties.county || feature.properties.County) || 'County';
+          layer.bindPopup(`<strong>${name}</strong>`);
+        }
+      });
+
+      // Group layers into categories
     const baseMaps = {
       "OpenStreetMap": osm,
       "OS Zoomstack Light": osZoomstack,
@@ -265,7 +317,9 @@
     const mapLayers = {
       "Footpaths": demoFootpath,
       "Water": waterLayer,
-      "Utilities": utilitiesLayer
+      "Utilities": utilitiesLayer,
+      "Local Authority Boundaries": localAuthorityLayer
+      ,"County Boundaries": countiesLayer
     };
 
     // Custom grouped layer control
@@ -293,6 +347,67 @@
     demoFootpath.addTo(map);
     waterLayer.addTo(map);
     utilitiesLayer.addTo(map);
+  // Show Local Authority Boundaries by default as a test
+  localAuthorityLayer.addTo(map);
+
+    // Load counties GeoJSON from the GitHub raw URL provided by the user
+    // Raw URL derived from: https://github.com/wdfrazer-star/map-viewer/blob/main/data/counties.geojson/county_region_68e7e.json
+    // update the visible status element so the user can see progress without DevTools
+    const dataStatusEl = document.getElementById('data-status');
+    if (dataStatusEl) dataStatusEl.innerText = 'Counties: loading...';
+
+    fetch('https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/county_region_68e7e.json')
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        countiesLayer.addData(data);
+        // Add the counties layer to the map so it is visible by default
+        countiesLayer.addTo(map);
+        if (dataStatusEl) {
+          const count = data && data.features ? data.features.length : 'unknown';
+          dataStatusEl.innerText = `Counties: loaded (${count} features)`;
+        }
+        // Ensure the counties layer appears in the Leaflet grouped control
+        try {
+          if (typeof groupedLayerControl !== 'undefined' && groupedLayerControl.addOverlay) {
+            groupedLayerControl.addOverlay(countiesLayer, 'County Boundaries');
+          }
+        } catch (e) {
+          console.warn('Could not add counties layer to grouped control', e);
+        }
+
+        // Ensure there's a toolbar dropdown item for County Boundaries; create if missing
+        let countyBtn = document.querySelector('#mapLayersDropdown .dropdown-item[data-layer="County Boundaries"]');
+        if (!countyBtn) {
+          const container = document.getElementById('mapLayersDropdown');
+          countyBtn = document.createElement('button');
+          countyBtn.className = 'dropdown-item';
+          countyBtn.setAttribute('data-layer', 'County Boundaries');
+          countyBtn.textContent = 'County Boundaries';
+          container.appendChild(countyBtn);
+          // Re-bind click handler for this new item
+          countyBtn.onclick = () => {
+            if (map.hasLayer(countiesLayer)) {
+              map.removeLayer(countiesLayer);
+              countyBtn.classList.remove('selected');
+            } else {
+              countiesLayer.addTo(map);
+              countyBtn.classList.add('selected');
+            }
+          };
+        }
+
+        // Mark the County Boundaries dropdown item as selected
+        if (countyBtn) countyBtn.classList.add('selected');
+      })
+      .catch(err => {
+        console.error('Failed to load counties GeoJSON:', err);
+        if (dataStatusEl) dataStatusEl.innerText = `Counties: failed to load (${err.message})`;
+        const cb = document.getElementById('coord-box');
+        if (cb) cb.innerText = 'Grid: - (counties failed to load)';
+      });
 
     // === DRAWING TOOLS ===
     const drawnItems = new L.FeatureGroup().addTo(map);
@@ -380,6 +495,10 @@
         });
       };
     });
+
+    // Pre-select the Local Authority Boundaries dropdown item since it's on by default
+    const preselect = document.querySelector('#mapLayersDropdown .dropdown-item[data-layer="Local Authority Boundaries"]');
+    if (preselect) preselect.classList.add('selected');
 
     // === SEARCH ===
     document.getElementById('searchInput').addEventListener('keydown', e => {
