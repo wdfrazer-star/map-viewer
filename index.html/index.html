@@ -26,7 +26,20 @@
       font-family: system-ui, sans-serif;
     }
 
-    #toolbar { position: fixed; top: 0; left: 0; width: 100%; height: 50px; background: #fff; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 1000; }
+    #toolbar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 50px;
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
     #toolbar-left { display: flex; align-items: center; gap: 10px; }
     #toolbar-left img, #toolbar-left svg { height: 28px; width: auto; }
     #toolbar-center { flex: 1; display: flex; justify-content: center; }
@@ -88,34 +101,59 @@
     <span id="data-status-text">Counties: loading...</span>
   </div>
   <script>
+    // === MAP INITIALISATION ===
     const map = L.map('map').setView([50.9807, -3.1552], 13);
+
+    // === BASEMAPS ===
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
     const osZoomstack = L.tileLayer('https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY', { maxZoom: 19, attribution: '© Ordnance Survey' });
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
     const baseMaps = { "OpenStreetMap": osm, "OS Zoomstack Light": osZoomstack, "ESRI Satellite": esriSat };
-    const demoFootpath = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[-3.16, 50.98], [-3.15, 50.982]] }, properties: { name: "Example Footpath" } }] });
-    const waterLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[-3.16, 50.979], [-3.158, 50.979], [-3.158, 50.982], [-3.16, 50.982], [-3.16, 50.979]]] }, properties: { name: "Example Water" } }] }, { style: { color: '#00bfff', weight: 2, fillOpacity: 0.3 } });
-    const utilitiesLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-3.157, 50.981] }, properties: { name: "Example Utility" } }] });
-    const localAuthorityLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", properties: { name: "Test Local Authority" }, geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }] }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
+
+    // === SIMPLE OVERLAYS ===
+    const demoFootpath = L.geoJSON({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[-3.16, 50.98], [-3.15, 50.982]] }, properties: { name: "Example Footpath" } }]
+    });
+
+    const waterLayer = L.geoJSON({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[-3.16, 50.979], [-3.158, 50.979], [-3.158, 50.982], [-3.16, 50.982], [-3.16, 50.979]]] }, properties: { name: "Example Water" } }]
+    }, { style: { color: '#00bfff', weight: 2, fillOpacity: 0.3 } });
+
+    const utilitiesLayer = L.geoJSON({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-3.157, 50.981] }, properties: { name: "Example Utility" } }]
+    });
+
+    const localAuthorityLayer = L.geoJSON({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: { name: "Test Local Authority" },
+        geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }]
+    }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
+
     const countiesLayer = L.geoJSON(null, { style: { color: '#1f78b4', weight: 2, fillOpacity: 0.25 } });
+
     // === ONS LADs LAYER ===
-const onsLADsUrl = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/ArcGIS/rest/services/LAD_MAY_2025_UK_BUC/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&returnGeometry=true&f=geojson";
+    const onsLADsUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/Local_Authority_Districts_(May_2025)_Boundaries_UK_BUC.geojson';
+    const onsLADsLayer = L.geoJSON(null, { style: { color: '#e37726', weight: 2, fillOpacity: 0.3 } });
 
-const onsLADsLayer = L.geoJSON(null, { style: { color: "#e37726", weight: 2, fillOpacity: 0.3 } });
+    async function loadONSLADs() {
+      try {
+        const r = await fetch(onsLADsUrl);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        onsLADsLayer.clearLayers();
+        onsLADsLayer.addData(data);
+        onsLADsLayer.addTo(map);
+        map.fitBounds(onsLADsLayer.getBounds());
+        dataStatusText.textContent += ` | ONS LADs: loaded ${data.features.length} features`;
+      } catch (e) {
+        console.error('Failed to load ONS LADs:', e);
+        dataStatusText.textContent += ` | ONS LADs: failed (${e.message})`;
+      }
+    }
 
-async function loadONSLADs() {
-  try {
-    const r = await fetch(onsLADsUrl);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    onsLADsLayer.clearLayers();
-    onsLADsLayer.addData(data).addTo(map);
-    document.getElementById("data-status-text").textContent += ` | ONS LADs: loaded ${data.features.length} features`;
-  } catch (e) {
-    console.error("Failed to load ONS LADs:", e);
-    document.getElementById("data-status-text").textContent += ` | ONS LADs: failed (${e.message})`;
-  }
-}
     // === Map Layers Dictionary (add ONS LADs) ===
     const mapLayers = {
       "Footpaths": demoFootpath,
@@ -125,6 +163,7 @@ async function loadONSLADs() {
       "County Boundaries": countiesLayer,
       "ONS LADs": onsLADsLayer
     };
+
     // === LOAD COUNTIES GEOJSON ===
     const countiesUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/county_region_68e7e.json';
     const dataStatusText = document.getElementById('data-status-text');
@@ -142,10 +181,12 @@ async function loadONSLADs() {
       }
     }
     loadCounties();
+
     // === DRAWING TOOLS ===
     const drawnItems = new L.FeatureGroup().addTo(map);
     const drawControl = new L.Control.Draw({ draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }, edit: { featureGroup: drawnItems } });
     map.addControl(drawControl);
+
     map.on(L.Draw.Event.CREATED, e => {
       const layer = e.layer;
       if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
@@ -163,8 +204,10 @@ async function loadONSLADs() {
       }
       drawnItems.addLayer(layer);
     });
+
     // === SCALEBAR ===
     L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
+
     // === BASEMAP DROPDOWN ===
     document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(item => {
       item.onclick = () => {
@@ -174,6 +217,7 @@ async function loadONSLADs() {
         item.classList.add('selected');
       };
     });
+
     // === MAP LAYER DROPDOWN ===
     document.querySelectorAll('#mapLayersDropdown .dropdown-item').forEach(item => {
       item.onclick = async () => {
@@ -192,6 +236,7 @@ async function loadONSLADs() {
         }
       };
     });
+
     // === SEARCH BOX ===
     document.getElementById('searchInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') {
@@ -210,6 +255,7 @@ async function loadONSLADs() {
           .catch(err => console.error('Search error:', err));
       }
     });
+
     // === OS GRID COORDINATES ===
     const WGS84 = 'EPSG:4326';
     const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
