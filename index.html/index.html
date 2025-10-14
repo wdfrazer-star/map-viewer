@@ -99,21 +99,23 @@
     const localAuthorityLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", properties: { name: "Test Local Authority" }, geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }] }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
     const countiesLayer = L.geoJSON(null, { style: { color: '#1f78b4', weight: 2, fillOpacity: 0.25 } });
     // === ONS LADs LAYER ===
-    const onsLADsUrl = 'https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Standard_Area_Measurements_for_the_Local_Authority_Districts_(December_2024)_in_the_UK/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson';
-    const onsLADsLayer = L.geoJSON(null, { style: { color: '#e37726', weight: 2, fillOpacity: 0.3 } });
-    async function loadONSLADs() {
-      try {
-        const r = await fetch(onsLADsUrl);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        onsLADsLayer.clearLayers();
-        onsLADsLayer.addData(data);
-        dataStatusText.textContent += ` | ONS LADs: loaded ${data.features.length} features`;
-      } catch (e) {
-        console.error('Failed to load ONS LADs:', e);
-        dataStatusText.textContent += ` | ONS LADs: failed (${e.message})`;
-      }
-    }
+const onsLADsUrl = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/ArcGIS/rest/services/LAD_MAY_2025_UK_BUC/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&returnGeometry=true&f=geojson";
+
+const onsLADsLayer = L.geoJSON(null, { style: { color: "#e37726", weight: 2, fillOpacity: 0.3 } });
+
+async function loadONSLADs() {
+  try {
+    const r = await fetch(onsLADsUrl);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    onsLADsLayer.clearLayers();
+    onsLADsLayer.addData(data).addTo(map);
+    document.getElementById("data-status-text").textContent += ` | ONS LADs: loaded ${data.features.length} features`;
+  } catch (e) {
+    console.error("Failed to load ONS LADs:", e);
+    document.getElementById("data-status-text").textContent += ` | ONS LADs: failed (${e.message})`;
+  }
+}
     // === Map Layers Dictionary (add ONS LADs) ===
     const mapLayers = {
       "Footpaths": demoFootpath,
