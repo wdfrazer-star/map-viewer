@@ -26,127 +26,28 @@
       font-family: system-ui, sans-serif;
     }
 
-    /* === Top Toolbar === */
-    #toolbar {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 50px;
-      background: #fff;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      z-index: 1000;
-    }
-
-    #toolbar-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    #toolbar-left img, 
-    #toolbar-left svg {
-      height: 28px;
-      width: auto;
-    }
-
-    #toolbar-center {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-    }
-
-    #toolbar-center input {
-      width: 400px;
-      max-width: 80%;
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-
-    #toolbar-right {
-      display: flex;
-      gap: 8px;
-    }
-
-    .tool-btn {
-      background: #f9f9f9;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 6px 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .tool-btn:hover {
-      background: #eee;
-    }
-
-    #map {
-      height: calc(100vh - 50px);
-      width: 100%;
-      margin-top: 50px;
-    }
-
-    /* Adjust Leaflet controls */
+    #toolbar { position: fixed; top: 0; left: 0; width: 100%; height: 50px; background: #fff; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 1000; }
+    #toolbar-left { display: flex; align-items: center; gap: 10px; }
+    #toolbar-left img, #toolbar-left svg { height: 28px; width: auto; }
+    #toolbar-center { flex: 1; display: flex; justify-content: center; }
+    #toolbar-center input { width: 400px; max-width: 80%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; }
+    #toolbar-right { display: flex; gap: 8px; }
+    .tool-btn { background: #f9f9f9; border: 1px solid #ccc; border-radius: 6px; padding: 6px 10px; cursor: pointer; transition: all 0.2s; }
+    .tool-btn:hover { background: #eee; }
+    #map { height: calc(100vh - 50px); width: 100%; margin-top: 50px; }
     .leaflet-top.leaflet-left { top: 70px; }
     .leaflet-top.leaflet-right { top: 70px; }
-
-    /* Coordinate box */
-    #coord-box {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: rgba(255,255,255,0.9);
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 5px 10px;
-      font-size: 13px;
-      z-index: 999;
-    }
-
-    /* Area labels */
-    .area-label {
-      background: rgba(255, 255, 255, 0.8);
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 4px;
-      font-size: 12px;
-      color: #333;
-    }
-
-    /* Dropdown menus */
+    #coord-box { position: absolute; bottom: 10px; right: 10px; background: rgba(255,255,255,0.9); border: 1px solid #ccc; border-radius: 6px; padding: 5px 10px; font-size: 13px; z-index: 999; }
+    .area-label { background: rgba(255, 255, 255, 0.8); border: 1px solid #ccc; border-radius: 4px; padding: 4px; font-size: 12px; color: #333; }
     .dropdown { position: relative; display: inline-block; }
-    .dropdown-content {
-      display: none;
-      position: absolute;
-      background: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      z-index: 1000;
-      min-width: 150px;
-    }
-    .dropdown-content .dropdown-item {
-      padding: 8px 12px;
-      cursor: pointer;
-      text-align: left;
-      border: none;
-      background: none;
-      width: 100%;
-    }
+    .dropdown-content { display: none; position: absolute; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #ccc; border-radius: 6px; z-index: 1000; min-width: 150px; }
+    .dropdown-content .dropdown-item { padding: 8px 12px; cursor: pointer; text-align: left; border: none; background: none; width: 100%; }
     .dropdown-content .dropdown-item:hover { background-color: #f1f1f1; }
     .dropdown-content .dropdown-item.selected { background-color: #e0e0e0; font-weight: bold; }
     .dropdown:hover .dropdown-content, .dropdown-content:hover { display: block; }
   </style>
 </head>
 <body>
-
-  <!-- === Toolbar === -->
   <div id="toolbar">
     <div id="toolbar-left">
       <svg width="32" height="32" viewBox="0 0 32 32">
@@ -155,11 +56,9 @@
       </svg>
       <strong>The Mapping Company</strong>
     </div>
-
     <div id="toolbar-center">
       <input type="text" id="searchInput" placeholder="Search address or postcode..." />
     </div>
-
     <div id="toolbar-right">
       <button class="tool-btn" id="drawBtn">✏️ Draw</button>
       <div class="dropdown">
@@ -178,68 +77,55 @@
           <button class="dropdown-item" data-layer="Utilities">Utilities</button>
           <button class="dropdown-item" data-layer="Local Authority Boundaries">Local Authority Boundaries</button>
           <button class="dropdown-item" data-layer="County Boundaries">County Boundaries</button>
+          <button class="dropdown-item" data-layer="ONS LADs">ONS LADs</button>
         </div>
       </div>
     </div>
   </div>
-
   <div id="map"></div>
   <div id="coord-box">Grid: -</div>
   <div id="data-status" style="position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,0.95);border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:13px;z-index:999;">
     <span id="data-status-text">Counties: loading...</span>
   </div>
-
   <script>
-    // === MAP INITIALISATION ===
     const map = L.map('map').setView([50.9807, -3.1552], 13);
-
-    // === BASEMAPS ===
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    const osZoomstack = L.tileLayer('https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY', {
-      maxZoom: 19,
-      attribution: '© Ordnance Survey'
-    });
-
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri'
-    });
-
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+    const osZoomstack = L.tileLayer('https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY', { maxZoom: 19, attribution: '© Ordnance Survey' });
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
     const baseMaps = { "OpenStreetMap": osm, "OS Zoomstack Light": osZoomstack, "ESRI Satellite": esriSat };
-
-    // === SIMPLE OVERLAYS ===
-    const demoFootpath = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[-3.16, 50.98], [-3.15, 50.982]] }, properties: { name: "Example Footpath" } }]
-    });
-
-    const waterLayer = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[-3.16, 50.979], [-3.158, 50.979], [-3.158, 50.982], [-3.16, 50.982], [-3.16, 50.979]]] }, properties: { name: "Example Water" } }]
-    }, { style: { color: '#00bfff', weight: 2, fillOpacity: 0.3 } });
-
-    const utilitiesLayer = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-3.157, 50.981] }, properties: { name: "Example Utility" } }]
-    });
-
-    const localAuthorityLayer = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", properties: { name: "Test Local Authority" },
-        geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }]
-    }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
-
+    const demoFootpath = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[-3.16, 50.98], [-3.15, 50.982]] }, properties: { name: "Example Footpath" } }] });
+    const waterLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[-3.16, 50.979], [-3.158, 50.979], [-3.158, 50.982], [-3.16, 50.982], [-3.16, 50.979]]] }, properties: { name: "Example Water" } }] }, { style: { color: '#00bfff', weight: 2, fillOpacity: 0.3 } });
+    const utilitiesLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-3.157, 50.981] }, properties: { name: "Example Utility" } }] });
+    const localAuthorityLayer = L.geoJSON({ type: "FeatureCollection", features: [{ type: "Feature", properties: { name: "Test Local Authority" }, geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }] }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
     const countiesLayer = L.geoJSON(null, { style: { color: '#1f78b4', weight: 2, fillOpacity: 0.25 } });
-
-    const mapLayers = { "Footpaths": demoFootpath, "Water": waterLayer, "Utilities": utilitiesLayer, "Local Authority Boundaries": localAuthorityLayer, "County Boundaries": countiesLayer };
-
+    // === ONS LADs LAYER ===
+    const onsLADsUrl = 'https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Standard_Area_Measurements_for_the_Local_Authority_Districts_(December_2024)_in_the_UK/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson';
+    const onsLADsLayer = L.geoJSON(null, { style: { color: '#e37726', weight: 2, fillOpacity: 0.3 } });
+    async function loadONSLADs() {
+      try {
+        const r = await fetch(onsLADsUrl);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        onsLADsLayer.clearLayers();
+        onsLADsLayer.addData(data);
+        dataStatusText.textContent += ` | ONS LADs: loaded ${data.features.length} features`;
+      } catch (e) {
+        console.error('Failed to load ONS LADs:', e);
+        dataStatusText.textContent += ` | ONS LADs: failed (${e.message})`;
+      }
+    }
+    // === Map Layers Dictionary (add ONS LADs) ===
+    const mapLayers = {
+      "Footpaths": demoFootpath,
+      "Water": waterLayer,
+      "Utilities": utilitiesLayer,
+      "Local Authority Boundaries": localAuthorityLayer,
+      "County Boundaries": countiesLayer,
+      "ONS LADs": onsLADsLayer
+    };
     // === LOAD COUNTIES GEOJSON ===
-    const countiesUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/county_region_68e7e.json'; // ✅ change if needed
+    const countiesUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/county_region_68e7e.json';
     const dataStatusText = document.getElementById('data-status-text');
-
     async function loadCounties() {
       try {
         const r = await fetch(countiesUrl);
@@ -254,12 +140,10 @@
       }
     }
     loadCounties();
-
     // === DRAWING TOOLS ===
     const drawnItems = new L.FeatureGroup().addTo(map);
     const drawControl = new L.Control.Draw({ draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }, edit: { featureGroup: drawnItems } });
     map.addControl(drawControl);
-
     map.on(L.Draw.Event.CREATED, e => {
       const layer = e.layer;
       if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
@@ -277,10 +161,8 @@
       }
       drawnItems.addLayer(layer);
     });
-
     // === SCALEBAR ===
     L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
-
     // === BASEMAP DROPDOWN ===
     document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(item => {
       item.onclick = () => {
@@ -290,18 +172,24 @@
         item.classList.add('selected');
       };
     });
-
     // === MAP LAYER DROPDOWN ===
     document.querySelectorAll('#mapLayersDropdown .dropdown-item').forEach(item => {
-      item.onclick = () => {
+      item.onclick = async () => {
         const name = item.getAttribute('data-layer');
         const layer = mapLayers[name];
         if (!layer) return;
-        if (map.hasLayer(layer)) { map.removeLayer(layer); item.classList.remove('selected'); }
-        else { layer.addTo(map); item.classList.add('selected'); }
+        if (name === "ONS LADs" && !map.hasLayer(layer)) {
+          await loadONSLADs();
+        }
+        if (map.hasLayer(layer)) {
+          map.removeLayer(layer);
+          item.classList.remove('selected');
+        } else {
+          layer.addTo(map);
+          item.classList.add('selected');
+        }
       };
     });
-
     // === SEARCH BOX ===
     document.getElementById('searchInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') {
@@ -320,7 +208,6 @@
           .catch(err => console.error('Search error:', err));
       }
     });
-
     // === OS GRID COORDINATES ===
     const WGS84 = 'EPSG:4326';
     const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
