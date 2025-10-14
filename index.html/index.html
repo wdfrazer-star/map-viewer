@@ -132,7 +132,25 @@
         geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }]
     }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
 
-    const countiesLayer = L.geoJSON(null, { style: { color: '#1f78b4', weight: 2, fillOpacity: 0.25 } });
+    const countiesLayer = L.geoJSON(null, {
+      style: function(feature) {
+        return {
+          color: '#1f78b4',
+          weight: 2.5,
+          opacity: 0.95,
+          fillColor: '#a6cee3',
+          fillOpacity: 0.35
+        };
+      },
+      onEachFeature: function(feature, layer) {
+        const props = feature && feature.properties ? feature.properties : {};
+        const name = props.name || props.NAME || props.LAD13NM || props.lad15nm || props.LAD20NM || 'County/LA';
+        let html = `<strong>${name}</strong>`;
+        // add other useful properties if present
+        if (props.code || props.CODE) html += `<div>Code: ${props.code || props.CODE}</div>`;
+        layer.bindPopup(html);
+      }
+    });
 
     // === ONS LADs LAYER ===
     const onsLADsUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/Local_Authority_Districts_(May_2025)_Boundaries_UK_BUC.geojson';
@@ -169,12 +187,58 @@
     const dataStatusText = document.getElementById('data-status-text');
     async function loadCounties() {
       try {
+        dataStatusText.textContent = 'Counties: fetching...';
         const r = await fetch(countiesUrl);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
+
+        // helper to find a sample coordinate
+        function findCoord(obj) {
+          if (!obj) return null;
+          if (obj.type === 'FeatureCollection' && Array.isArray(obj.features) && obj.features.length) return findCoord(obj.features[0].geometry);
+          if (obj.type === 'Feature') return findCoord(obj.geometry);
+          if (obj.coordinates) {
+            let c = obj.coordinates;
+            while (Array.isArray(c) && Array.isArray(c[0])) c = c[0];
+            return Array.isArray(c) ? c : null;
+          }
+          return null;
+        }
+
+        // recursive transform for coords arrays
+        function transformCoords(coords, transformFn) {
+          if (!Array.isArray(coords)) return coords;
+          if (typeof coords[0] === 'number') {
+            return transformFn(coords);
+          }
+          return coords.map(c => transformCoords(c, transformFn));
+        }
+
+        // Reproject from OSGB36 (British National Grid) if coordinates look like metre values
+        const sample = findCoord(data);
+        if (sample && Math.abs(sample[0]) > 1000 && Math.abs(sample[1]) > 1000) {
+          // use proj4 to convert from OSGB36 to WGS84
+          const osgb = OSGB36; // proj string defined lower in the file
+          const wgs = WGS84;
+          data.features.forEach(f => {
+            if (f && f.geometry && f.geometry.coordinates) {
+              f.geometry.coordinates = transformCoords(f.geometry.coordinates, c => proj4(osgb, wgs, c));
+            }
+          });
+          dataStatusText.textContent = 'Counties: reprojected from OSGB36 → WGS84';
+        }
+
         countiesLayer.clearLayers();
         countiesLayer.addData(data).addTo(map);
-        dataStatusText.textContent = `Counties: loaded ${data.features.length} features`;
+        dataStatusText.textContent = `Counties: loaded ${data.features ? data.features.length : 0} features`;
+
+        // fit bounds if possible (makes layer visible)
+        try {
+          const b = countiesLayer.getBounds();
+          if (b && b.isValid && b.isValid()) map.fitBounds(b);
+        } catch (e) {
+          try { map.fitBounds(countiesLayer.getBounds()); } catch (e) { /* ignore */ }
+        }
       } catch (e) {
         console.error('Failed to load counties:', e);
         dataStatusText.textContent = `Counties: failed to load (${e.message})`;
