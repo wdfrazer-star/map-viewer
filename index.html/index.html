@@ -100,233 +100,190 @@
   <div id="data-status" style="position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,0.95);border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:13px;z-index:999;">
     <span id="data-status-text">Counties: loading...</span>
   </div>
-  <script>
-    // === MAP INITIALISATION ===
-    const map = L.map('map').setView([50.9807, -3.1552], 13);
+<script>
+  // === MAP INITIALISATION ===
+  const map = L.map('map').setView([51.0, -1.0], 7); // UK-wide start
 
-    // === BASEMAPS ===
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
-    const osZoomstack = L.tileLayer('https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY', { maxZoom: 19, attribution: '© Ordnance Survey' });
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
-    const baseMaps = { "OpenStreetMap": osm, "OS Zoomstack Light": osZoomstack, "ESRI Satellite": esriSat };
+  // === BASEMAPS ===
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
 
-    // === SIMPLE OVERLAYS ===
-    const demoFootpath = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[-3.16, 50.98], [-3.15, 50.982]] }, properties: { name: "Example Footpath" } }]
-    });
+  const osZoomstack = L.tileLayer(
+    'https://api.os.uk/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=YOUR_API_KEY',
+    { maxZoom: 19, attribution: '© Ordnance Survey' }
+  );
 
-    const waterLayer = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[-3.16, 50.979], [-3.158, 50.979], [-3.158, 50.982], [-3.16, 50.982], [-3.16, 50.979]]] }, properties: { name: "Example Water" } }]
-    }, { style: { color: '#00bfff', weight: 2, fillOpacity: 0.3 } });
+  const esriSat = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Tiles © Esri' }
+  );
 
-    const utilitiesLayer = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [-3.157, 50.981] }, properties: { name: "Example Utility" } }]
-    });
+  const baseMaps = {
+    "OpenStreetMap": osm,
+    "OS Zoomstack Light": osZoomstack,
+    "ESRI Satellite": esriSat
+  };
 
-    const localAuthorityLayer = L.geoJSON({
-      type: "FeatureCollection",
-      features: [{ type: "Feature", properties: { name: "Test Local Authority" },
-        geometry: { type: "Polygon", coordinates: [[[-3.162, 50.983], [-3.148, 50.983], [-3.148, 50.977], [-3.162, 50.977], [-3.162, 50.983]]] } }]
-    }, { style: { color: '#7b3294', weight: 2, dashArray: '4 3', fillColor: '#b2a5d9', fillOpacity: 0.35 } });
+  // === LOCAL AUTHORITY BOUNDARIES (MAIN DATASET) ===
+  const laUrl = encodeURI(
+    'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/Local_Authority_Districts_(May_2025)_Boundaries_UK_BUC.geojson'
+  );
 
-    const countiesLayer = L.geoJSON(null, {
-      style: function(feature) {
-        return {
-          color: '#1f78b4',
-          weight: 2.5,
-          opacity: 0.95,
-          fillColor: '#a6cee3',
-          fillOpacity: 0.35
-        };
-      },
-      onEachFeature: function(feature, layer) {
-        const props = feature && feature.properties ? feature.properties : {};
-        const name = props.name || props.NAME || props.LAD13NM || props.lad15nm || props.LAD20NM || 'County/LA';
-        let html = `<strong>${name}</strong>`;
-        // add other useful properties if present
-        if (props.code || props.CODE) html += `<div>Code: ${props.code || props.CODE}</div>`;
-        layer.bindPopup(html);
-      }
-    });
-
-    // === ONS LADs LAYER ===
-    const onsLADsUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/Local_Authority_Districts_(May_2025)_Boundaries_UK_BUC.geojson';
-    const onsLADsLayer = L.geoJSON(null, { style: { color: '#e37726', weight: 2, fillOpacity: 0.3 } });
-
-    async function loadONSLADs() {
-      try {
-        const r = await fetch(onsLADsUrl);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        onsLADsLayer.clearLayers();
-        onsLADsLayer.addData(data);
-        onsLADsLayer.addTo(map);
-        map.fitBounds(onsLADsLayer.getBounds());
-        dataStatusText.textContent += ` | ONS LADs: loaded ${data.features.length} features`;
-      } catch (e) {
-        console.error('Failed to load ONS LADs:', e);
-        dataStatusText.textContent += ` | ONS LADs: failed (${e.message})`;
-      }
+  const laLayer = L.geoJSON(null, {
+    style: {
+      color: '#7b3294',
+      weight: 2,
+      fillColor: '#b2a5d9',
+      fillOpacity: 0.3
+    },
+    onEachFeature: (feature, layer) => {
+      const props = feature.properties || {};
+      const name = props.LAD23NM || props.LAD20NM || props.NAME || props.name || "Local Authority";
+      layer.bindPopup(`<strong>${name}</strong>`);
     }
+  });
 
-    // === Map Layers Dictionary (add ONS LADs) ===
-    const mapLayers = {
-      "Footpaths": demoFootpath,
-      "Water": waterLayer,
-      "Utilities": utilitiesLayer,
-      "Local Authority Boundaries": localAuthorityLayer,
-      "County Boundaries": countiesLayer,
-      "ONS LADs": onsLADsLayer
-    };
+  const dataStatusText = document.getElementById('data-status-text');
 
-    // === LOAD COUNTIES GEOJSON ===
-    const countiesUrl = 'https://raw.githubusercontent.com/wdfrazer-star/map-viewer/main/data/counties.geojson/county_region_68e7e.json';
-    const dataStatusText = document.getElementById('data-status-text');
-    async function loadCounties() {
-      try {
-        dataStatusText.textContent = 'Counties: fetching...';
-        const r = await fetch(countiesUrl);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
+  // === CRS definitions for reprojection if needed ===
+  const WGS84 = 'EPSG:4326';
+  const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
 
-        // helper to find a sample coordinate
-        function findCoord(obj) {
-          if (!obj) return null;
-          if (obj.type === 'FeatureCollection' && Array.isArray(obj.features) && obj.features.length) return findCoord(obj.features[0].geometry);
-          if (obj.type === 'Feature') return findCoord(obj.geometry);
-          if (obj.coordinates) {
-            let c = obj.coordinates;
-            while (Array.isArray(c) && Array.isArray(c[0])) c = c[0];
-            return Array.isArray(c) ? c : null;
-          }
-          return null;
-        }
-
-        // recursive transform for coords arrays
-        function transformCoords(coords, transformFn) {
-          if (!Array.isArray(coords)) return coords;
-          if (typeof coords[0] === 'number') {
-            return transformFn(coords);
-          }
-          return coords.map(c => transformCoords(c, transformFn));
-        }
-
-        // Reproject from OSGB36 (British National Grid) if coordinates look like metre values
-        const sample = findCoord(data);
-        if (sample && Math.abs(sample[0]) > 1000 && Math.abs(sample[1]) > 1000) {
-          // use proj4 to convert from OSGB36 to WGS84
-          const osgb = OSGB36; // proj string defined lower in the file
-          const wgs = WGS84;
-          data.features.forEach(f => {
-            if (f && f.geometry && f.geometry.coordinates) {
-              f.geometry.coordinates = transformCoords(f.geometry.coordinates, c => proj4(osgb, wgs, c));
-            }
-          });
-          dataStatusText.textContent = 'Counties: reprojected from OSGB36 → WGS84';
-        }
-
-        countiesLayer.clearLayers();
-        countiesLayer.addData(data).addTo(map);
-        dataStatusText.textContent = `Counties: loaded ${data.features ? data.features.length : 0} features`;
-
-        // fit bounds if possible (makes layer visible)
-        try {
-          const b = countiesLayer.getBounds();
-          if (b && b.isValid && b.isValid()) map.fitBounds(b);
-        } catch (e) {
-          try { map.fitBounds(countiesLayer.getBounds()); } catch (e) { /* ignore */ }
-        }
-      } catch (e) {
-        console.error('Failed to load counties:', e);
-        dataStatusText.textContent = `Counties: failed to load (${e.message})`;
-      }
+  function findCoord(obj) {
+    if (!obj) return null;
+    if (obj.type === 'FeatureCollection' && obj.features?.length) return findCoord(obj.features[0]);
+    if (obj.type === 'Feature') return findCoord(obj.geometry);
+    if (Array.isArray(obj.coordinates)) {
+      let c = obj.coordinates;
+      while (Array.isArray(c) && Array.isArray(c[0])) c = c[0];
+      return c;
     }
-    loadCounties();
+    return null;
+  }
 
-    // === DRAWING TOOLS ===
-    const drawnItems = new L.FeatureGroup().addTo(map);
-    const drawControl = new L.Control.Draw({ draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true }, edit: { featureGroup: drawnItems } });
-    map.addControl(drawControl);
+  function transformCoords(coords, fn) {
+    if (typeof coords[0] === 'number') return fn(coords);
+    return coords.map(c => transformCoords(c, fn));
+  }
 
-    map.on(L.Draw.Event.CREATED, e => {
-      const layer = e.layer;
-      if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
-        const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
-        const ha = area / 10000;
-        const acres = area / 4046.8564224;
-        const center = layer.getBounds().getCenter();
-        L.marker(center, {
-          icon: L.divIcon({
-            className: 'area-label',
-            html: `<strong>${ha.toFixed(2)} ha</strong><br>${acres.toFixed(2)} acres`,
-            iconSize: [100, 40]
-          }), interactive: false
-        }).addTo(map);
+  async function loadLocalAuthorities() {
+    try {
+      dataStatusText.textContent = 'Local Authorities: fetching...';
+      const r = await fetch(laUrl);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+
+      // Reproject if needed (detects metre coordinates)
+      const sample = findCoord(data);
+      if (sample && Math.abs(sample[0]) > 1000 && Math.abs(sample[1]) > 1000) {
+        data.features.forEach(f => {
+          if (f.geometry?.coordinates) {
+            f.geometry.coordinates = transformCoords(
+              f.geometry.coordinates,
+              c => proj4(OSGB36, WGS84, c)
+            );
+          }
+        });
+        console.log('Reprojected Local Authorities from OSGB36 → WGS84');
       }
-      drawnItems.addLayer(layer);
-    });
 
-    // === SCALEBAR ===
-    L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
+      laLayer.clearLayers();
+      laLayer.addData(data);
 
-    // === BASEMAP DROPDOWN ===
-    document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(item => {
-      item.onclick = () => {
-        const name = item.getAttribute('data-layer');
-        Object.entries(baseMaps).forEach(([n, l]) => (n === name ? l.addTo(map) : map.removeLayer(l)));
-        document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(i => i.classList.remove('selected'));
-        item.classList.add('selected');
-      };
-    });
+      // Add to map initially OFF — only show when toggled
+      dataStatusText.textContent = `Local Authorities: ready (${data.features.length} features)`;
+    } catch (e) {
+      console.error('Failed to load Local Authorities:', e);
+      dataStatusText.textContent = `Local Authorities: failed (${e.message})`;
+    }
+  }
 
-    // === MAP LAYER DROPDOWN ===
-    document.querySelectorAll('#mapLayersDropdown .dropdown-item').forEach(item => {
-      item.onclick = async () => {
-        const name = item.getAttribute('data-layer');
-        const layer = mapLayers[name];
-        if (!layer) return;
-        if (name === "ONS LADs" && !map.hasLayer(layer)) {
-          await loadONSLADs();
-        }
-        if (map.hasLayer(layer)) {
-          map.removeLayer(layer);
+  loadLocalAuthorities();
+
+  // === DRAWING TOOLS ===
+  const drawnItems = new L.FeatureGroup().addTo(map);
+  const drawControl = new L.Control.Draw({
+    draw: { polygon: true, polyline: true, rectangle: true, circle: true, marker: true },
+    edit: { featureGroup: drawnItems }
+  });
+  map.addControl(drawControl);
+
+  map.on(L.Draw.Event.CREATED, e => {
+    const layer = e.layer;
+    if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
+      const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+      const ha = area / 10000;
+      const acres = area / 4046.8564224;
+      const center = layer.getBounds().getCenter();
+      L.marker(center, {
+        icon: L.divIcon({
+          className: 'area-label',
+          html: `<strong>${ha.toFixed(2)} ha</strong><br>${acres.toFixed(2)} acres`,
+          iconSize: [100, 40]
+        }),
+        interactive: false
+      }).addTo(map);
+    }
+    drawnItems.addLayer(layer);
+  });
+
+  // === SCALEBAR ===
+  L.control.scale({ position: 'bottomleft', metric: true, imperial: true }).addTo(map);
+
+  // === TOGGLE MAP LAYERS DROPDOWN ===
+  document.querySelectorAll('#mapLayersDropdown .dropdown-item').forEach(item => {
+    item.onclick = () => {
+      const name = item.getAttribute('data-layer');
+      if (name === 'Local Authority Boundaries') {
+        if (map.hasLayer(laLayer)) {
+          map.removeLayer(laLayer);
           item.classList.remove('selected');
         } else {
-          layer.addTo(map);
+          laLayer.addTo(map);
           item.classList.add('selected');
+          map.fitBounds(laLayer.getBounds());
         }
-      };
-    });
-
-    // === SEARCH BOX ===
-    document.getElementById('searchInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        const q = e.target.value.trim();
-        if (!q) return;
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
-          .then(r => r.json())
-          .then(results => {
-            if (results.length) {
-              const c = results[0];
-              const latlng = [parseFloat(c.lat), parseFloat(c.lon)];
-              map.setView(latlng, 16);
-              L.marker(latlng).addTo(map).bindPopup(c.display_name).openPopup();
-            } else alert("Location not found");
-          })
-          .catch(err => console.error('Search error:', err));
       }
-    });
+    };
+  });
 
-    // === OS GRID COORDINATES ===
-    const WGS84 = 'EPSG:4326';
-    const OSGB36 = '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.1502,0.2470,0.8421,-20.4894 +units=m +no_defs';
-    map.on('mousemove', e => {
-      const [E, N] = proj4(WGS84, OSGB36, [e.latlng.lng, e.latlng.lat]);
-      document.getElementById('coord-box').innerText = `Grid: ${E.toFixed(0)}E, ${N.toFixed(0)}N`;
-    });
-  </script>
+  // === BASEMAP DROPDOWN ===
+  document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(item => {
+    item.onclick = () => {
+      const name = item.getAttribute('data-layer');
+      Object.entries(baseMaps).forEach(([n, l]) => (n === name ? l.addTo(map) : map.removeLayer(l)));
+      document.querySelectorAll('#baseMapsDropdown .dropdown-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+    };
+  });
+
+  // === SEARCH BOX ===
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const q = e.target.value.trim();
+      if (!q) return;
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(results => {
+          if (results.length) {
+            const c = results[0];
+            const latlng = [parseFloat(c.lat), parseFloat(c.lon)];
+            map.setView(latlng, 14);
+            L.marker(latlng).addTo(map).bindPopup(c.display_name).openPopup();
+          } else alert("Location not found");
+        })
+        .catch(err => console.error('Search error:', err));
+    }
+  });
+
+  // === OS GRID COORDINATES ===
+  map.on('mousemove', e => {
+    const [E, N] = proj4(WGS84, OSGB36, [e.latlng.lng, e.latlng.lat]);
+    document.getElementById('coord-box').innerText = `Grid: ${E.toFixed(0)}E, ${N.toFixed(0)}N`;
+  });
+</script>
+
 </body>
 </html>
